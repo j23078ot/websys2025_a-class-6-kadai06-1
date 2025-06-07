@@ -1,0 +1,98 @@
+import requests
+import json
+
+# ここに自分のアプリケーションIDを書く (Open-MeteoはAPIキー不要)
+# Open-Meteoは公開APIのため、アプリケーションID（APIキー）は不要です。
+# 他のAPIを利用する際は、ここにAPIキーを設定する必要がある場合があります。
+APP_ID = "YOUR_API_KEY_IS_NOT_NEEDED_FOR_OPEN_METEO"
+
+# Open-Meteo APIのエンドポイントURL
+# このURLは特定地点の現在の天気予報を取得するためのものです。
+API_URL = "https://api.open-meteo.com/v1/forecast"
+
+# 取得するデータの種類、エンドポイントと機能、使い方など
+
+# 【取得するデータの種類】
+# 今回は日本の「千葉県市原市」の現在の天気情報を取得します。
+# 具体的には、気温、湿度、風速、天気コードなどを取得します。
+# 緯度 (latitude): 35.5 (千葉県市原市周辺の緯度)
+# 経度 (longitude): 140.1 (千葉県市原市周辺の経度)
+# current: 取得したい現在の天気データ項目（例: temperature_2m, relative_humidity_2m, wind_speed_10m, weather_code）
+# timezone: タイムゾーンを東京に設定 (Asia/Tokyo)
+# language: 日本語 (ja) で取得
+
+# 【参照するオープンデータの名前と概要】
+# 名前: Open-Meteo
+# 概要: 無料で利用できるオープンソースの天気予報APIです。
+#       世界中の様々な地点の天気予報データ（気温、降水量、風速など）を、
+#       簡単なAPIリクエストで取得できます。APIキーは不要で、開発者が手軽に
+#       天気データを活用できるように設計されています。
+
+# 【エンドポイントと機能】
+# エンドポイント: https://api.open-meteo.com/v1/forecast
+# 機能: 指定された緯度・経度の地点の気象予報データをJSON形式で取得します。
+#       現在の天気、日ごとの予報、時間ごとの予報など、様々な情報を取得できます。
+
+# 【使い方】
+# 1. requests.get() メソッドにAPI_URLとパラメータ（params）を渡してリクエストを送信します。
+# 2. レスポンスはJSON形式で返されるため、response.json() でPythonの辞書型に変換します。
+# 3. 取得した現在の天気データは、"current" キーの下に格納されています。
+# 4. エラーが発生した場合は、response.status_code を確認し、response.text でエラー内容を表示します。
+# 5. weather_code (天気コード) は、別途「Open-Meteo WMO Weather interpretation codes」で意味を確認できます。
+
+# 千葉県市原市の緯度経度
+ICHIBARA_LATITUDE = 35.5
+ICHIBARA_LONGITUDE = 140.1
+
+params = {
+    "latitude": ICHIBARA_LATITUDE,
+    "longitude": ICHIBARA_LONGITUDE,
+    "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code", # 取得したい現在の天気データ項目
+    "timezone": "Asia/Tokyo", # 日本のタイムゾーン
+    "language": "ja"          # 日本語でデータ取得
+}
+
+# APIリクエストを送信
+print("Open-Meteo APIに天気データのリクエスト中...")
+try:
+    response = requests.get(API_URL, params=params, timeout=10) # タイムアウトを10秒に設定
+    response.raise_for_status() # HTTPエラーが発生したら教えてくれる
+    print("リクエスト成功。返ってきたデータを処理します。")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTPエラー発生: {http_err}")
+    print(f"ステータスコード: {response.status_code}")
+    print(f"エラー内容: {response.text}")
+    exit()
+except requests.exceptions.ConnectionError as conn_err:
+    print(f"接続エラー発生: {conn_err}")
+    print("インターネットに繋がっているか確認してくださいね。")
+    exit()
+except requests.exceptions.Timeout as timeout_err:
+    print(f"リクエストがタイムアウトしました: {timeout_err}")
+    print("APIの応答が遅いか、ネットワークの問題かもしれません。")
+    exit()
+except requests.exceptions.RequestException as req_err:
+    print(f"予期せぬエラー発生: {req_err}")
+    exit()
+
+
+# レスポンスを処理
+data = response.json()
+
+# 取得したデータを整形して表示
+print("\n--- 取得したJSONデータ全体 ---")
+print(json.dumps(data, indent=2, ensure_ascii=False))
+
+# 特定のデータ（現在の天気情報）を取り出して表示する例
+if "current" in data:
+    current_weather = data["current"]
+    print("\n--- 現在の天気情報（千葉県市原市周辺） ---")
+    print(f"観測時間: {current_weather.get('time')}")
+    print(f"気温: {current_weather.get('temperature_2m')} {data['current_units'].get('temperature_2m')}")
+    print(f"相対湿度: {current_weather.get('relative_humidity_2m')} {data['current_units'].get('relative_humidity_2m')}")
+    print(f"風速: {current_weather.get('wind_speed_10m')} {data['current_units'].get('wind_speed_10m')}")
+    # 天気コード (weather_code) は別途意味を確認する必要があります
+    print(f"天気コード (WMO): {current_weather.get('weather_code')}")
+    print("\n※ 天気コードの意味はWMO Weather interpretation codes（Open-Meteo公式ドキュメント参照）")
+else:
+    print("現在の天気データが見つかりませんでした。APIからのレスポンスを確認してください。")
