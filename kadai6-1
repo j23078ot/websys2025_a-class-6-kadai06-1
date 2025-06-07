@@ -1,0 +1,73 @@
+import requests
+import json 
+
+# ここに自分のアプリケーションIDを書く
+# e-Stat APIを利用するために必要なアプリケーションIDを設定してください。
+# アプリケーションIDはe-Statのサイトで発行できます。
+APP_ID = "73bf80dad1d5710de64433e8588abf54312be88c" 
+
+# e-Stat APIのエンドポイントURL
+# このURLは統計データを取得するための標準的なエンドポイントです。
+API_URL = "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
+
+# 取得するデータの種類、エンドポイントと機能、使い方など
+
+# 【取得するデータの種類】
+# 今回は「労働力調査」の「完全失業率」のデータを取得します。
+# statsDataId: 統計表ID。労働力調査の統計表ID（例: 0003005898）を指定しています。
+# cdCat01: カテゴリコード。ここでは「完全失業率」に対応するカテゴリコード（例: TAB01）を指定しています。
+# cdArea: 地域コード。ここでは全国（00000）を指定しています。
+# cdTime: 時系列コード。ここでは最新のデータ取得のため、過去数年分の指定はしていません。
+#         特定の年月のデータを取得したい場合は、"cdTime": "YYYYMM" の形式で指定します。
+
+# 【エンドポイントと機能】
+# エンドポイント: https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData
+# 機能: 指定された統計表ID、地域、時系列、カテゴリなどに基づいて、統計データをJSON形式で取得します。
+
+# 【使い方】
+# 1. requests.get() メソッドにAPI_URLとパラメータ（params）を渡してリクエストを送信します。
+# 2. レスポンスはJSON形式で返されるため、response.json() でPythonの辞書型に変換します。
+# 3. 取得したデータは、"GET_STATS_DATA" -> "STATISTICAL_DATA" -> "DATA_INF" -> "VALUE" のパスに格納されています。
+# 4. メタ情報（データの詳細情報）は、"GET_STATS_DATA" -> "STATISTICAL_DATA" -> "CLASS_INF" に格納されています。
+
+params = {
+    "appId": APP_ID,
+    "statsDataId": "0003005898", # 労働力調査の統計表ID（例）
+    "cdArea": "00000",          # 全国（00000）。必要に応じて都道府県コード（例: 13000 for Tokyo）などに変更
+    "cdCat01": "TAB01",         # 完全失業率（TAB01）。リファレンスで確認したカテゴリコード
+    "metaGetFlg": "Y",          # メタ情報を取得する（Y）
+    "cntGetFlg": "N",           # 件数を取得しない（N）
+    "explanationGetFlg": "Y",   # 説明情報を取得する（Y）
+    "annotationGetFlg": "Y",    # 注釈情報を取得する（Y）
+    "sectionHeaderFlg": "1",    # セクションヘッダーフラグ
+    "replaceSpChars": "0",      # 特殊文字の置換フラグ
+    "lang": "J"                 # 日本語を指定
+}
+
+# APIリクエストを送信
+response = requests.get(API_URL, params=params)
+
+# レスポンスを処理
+# レスポンスステータスコードを確認 (200 は成功)
+if response.status_code == 200:
+    data = response.json()
+    # 取得したデータを整形して表示
+    print(json.dumps(data, indent=2, ensure_ascii=False))
+
+    # 特定のデータ（例: 完全失業率の値）を取り出して表示する例
+    if "GET_STATS_DATA" in data and \
+       "STATISTICAL_DATA" in data["GET_STATS_DATA"] and \
+       "DATA_INF" in data["GET_STATS_DATA"]["STATISTICAL_DATA"] and \
+       "VALUE" in data["GET_STATS_DATA"]["STATISTICAL_DATA"]["DATA_INF"]:
+
+        print("\n--- 取得データ例（完全失業率） ---")
+        for item in data["GET_STATS_DATA"]["STATISTICAL_DATA"]["DATA_INF"]["VALUE"]:
+            # 完全失業率のデータをフィルタリング
+            if item.get("@cat01") == "TAB01" and item.get("@unit") == "%":
+                print(f"年月: {item.get('@time')}, 完全失業率: {item.get('$')}%")
+    else:
+        print("データ構造が期待と異なります。")
+
+else:
+    print(f"APIリクエストに失敗しました。ステータスコード: {response.status_code}")
+    print(response.text) # エラーレスポンスの内容を表示
